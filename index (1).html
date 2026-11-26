@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi Oficina</title>
+<meta name="theme-color" content="#2a2420">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mi Oficina">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: radial-gradient(circle at 50% 30%, #4a3d30, #1d1814 70%) #2a2420;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #c { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: block; touch-action: none; }
+  #cargando { position: fixed; inset: 0; display: grid; place-items: center; color: #e9dcc8; font-size: 15px; transition: opacity .6s; pointer-events: none; }
+  #cargando.fuera { opacity: 0; }
+
+  /* ---------- Intercomunicador ---------- */
+  #interfono {
+    position: fixed; right: 28px; top: 50%; transform: translateY(-50%); z-index: 5;
+    width: 260px; padding: 14px; border-radius: 18px;
+    background: linear-gradient(160deg, rgba(58,63,75,.92), rgba(35,38,46,.92));
+    backdrop-filter: blur(8px); border: 1px solid #4a505e;
+    box-shadow: 0 24px 40px -16px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.12), inset 0 -2px 0 rgba(0,0,0,.35);
+    color: #e9edf5; transition: opacity .35s, transform .35s;
+  }
+  #interfono.oculto { opacity: 0; pointer-events: none; transform: translateY(-50%) translateX(30px); }
+  .if-tit { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #9ea6b8; margin: 0 4px 10px; }
+  .if-btn {
+    width: 100%; display: flex; align-items: center; gap: 12px; text-align: left;
+    padding: 10px 12px; margin-top: 8px; border-radius: 12px; cursor: pointer;
+    border: 1px solid #555c6c; color: inherit; font: inherit;
+    background: linear-gradient(180deg, #4a5060, #353a46);
+    box-shadow: 0 4px 0 #1c1f26, inset 0 1px 0 rgba(255,255,255,.1);
+    transition: transform .08s, box-shadow .08s;
+  }
+  .if-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #1c1f26; }
+  .if-av { width: 38px; height: 38px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 19px;
+    background: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c), #fff 30%) inset; }
+  .if-txt { flex: 1; line-height: 1.2; }
+  .if-txt b { display: block; font-size: 15px; }
+  .if-txt small { color: #aab2c3; font-size: 12px; }
+  .if-led { width: 9px; height: 9px; border-radius: 50%; background: #7ee0a1; box-shadow: 0 0 8px #7ee0a1; flex: none; }
+
+  /* ---------- Avisos y bocadillo ---------- */
+  #aviso {
+    position: fixed; top: max(16px, env(safe-area-inset-top)); left: 50%; z-index: 6;
+    transform: translate(-50%, -20px); opacity: 0; transition: .35s;
+    background: rgba(20,22,28,.85); color: #fff; padding: 10px 18px; border-radius: 999px;
+    font-size: 15px; backdrop-filter: blur(6px); white-space: nowrap;
+  }
+  #aviso.ver { opacity: 1; transform: translate(-50%, 0); }
+  #bocadillo {
+    position: fixed; left: 0; top: 0; z-index: 6; max-width: min(270px, 64vw);
+    background: #fff; color: #1f2430; padding: 12px 16px; border-radius: 18px 18px 18px 4px;
+    font-size: 15px; line-height: 1.35; box-shadow: 0 12px 28px -10px rgba(0,0,0,.45);
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  #bocadillo.ver { opacity: 1; }
+
+  /* ---------- Pantallita de la llamada ---------- */
+  #pantalla {
+    position: fixed; z-index: 7; right: 3vw; top: 5vh; bottom: 5vh; width: min(480px, 42vw);
+    display: flex; flex-direction: column; border-radius: 22px; overflow: hidden;
+    background: #15171c; border: 10px solid #15171c;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.8), 0 0 0 1px #3a3f4b;
+    transform: translateX(115%); transition: transform .55s cubic-bezier(.2,.9,.3,1);
+  }
+  #pantalla.ver { transform: none; }
+  .pt-cab { display: flex; align-items: center; gap: 10px; padding: 4px 4px 12px; color: #e9edf5; }
+  .pt-dot { width: 10px; height: 10px; border-radius: 50%; background: #7ee0a1; box-shadow: 0 0 8px #7ee0a1; flex: none; }
+  .pt-txt { flex: 1; min-width: 0; line-height: 1.2; }
+  .pt-txt b { display: block; font-size: 16px; }
+  .pt-txt span { font-size: 12px; color: #9ea6b8; font-variant-numeric: tabular-nums; }
+  .pt-txt a { color: #9cc2ff; text-decoration: none; margin-left: 6px; font-size: 12px; }
+  #colgar {
+    border: 0; border-radius: 999px; padding: 10px 16px; cursor: pointer; flex: none;
+    background: #e5484d; color: #fff; font: 700 14px/1 inherit; box-shadow: 0 6px 16px -6px #e5484d;
+  }
+  #ptCuerpo { flex: 1; position: relative; border-radius: 12px; overflow: hidden; background: #fff; }
+  #ptCuerpo iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; }
+  #ptCuerpo iframe.activo { display: block; }
+
+  /* ---------- Tablet: visor de la bodega 3D ---------- */
+  #visor {
+    position: fixed; z-index: 9; inset: max(4vh, env(safe-area-inset-top)) 4vw 4vh;
+    display: flex; flex-direction: column; border-radius: 30px; overflow: hidden;
+    background: #111316; border: 14px solid #111316;
+    box-shadow: 0 40px 80px -20px rgba(0,0,0,.85), 0 0 0 2px #2e333d;
+    opacity: 0; transform: scale(.85) translateY(40px); pointer-events: none;
+    transition: opacity .35s, transform .45s cubic-bezier(.2,.9,.3,1);
+  }
+  #visor.ver { opacity: 1; transform: none; pointer-events: auto; }
+  .vs-cab { display: flex; align-items: center; gap: 10px; padding: 0 4px 12px; color: #e9edf5; }
+  .vs-cab b { flex: 1; font-size: 16px; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 420px) { .vs-vivo { display: none; } }
+  .vs-vivo { font-size: 12px; color: #ff6b6b; font-weight: 700; letter-spacing: .05em; }
+  .vs-vivo::before { content: "●"; margin-right: 5px; animation: vivo 1.2s infinite; }
+  @keyframes vivo { 50% { opacity: .3; } }
+  .vs-cab a { color: #9cc2ff; text-decoration: none; font-size: 13px; }
+  #visorCerrar { border: 0; border-radius: 999px; padding: 10px 16px; cursor: pointer; background: #3a3f4b; color: #fff; font: 700 14px/1 inherit; }
+  #visorCuerpo { flex: 1; position: relative; border-radius: 14px; overflow: hidden; background: #000; }
+  #visorCuerpo iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #visorCuerpo .vs-falta { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: #c9d1e0; font-size: 15px; line-height: 1.5; }
+  #pista {
+    position: fixed; left: 0; top: 0; z-index: 4; pointer-events: none;
+    background: rgba(20,22,28,.85); color: #fff; font-size: 13px; padding: 7px 12px; border-radius: 999px;
+    backdrop-filter: blur(6px); white-space: nowrap; opacity: 0; transition: opacity .3s;
+  }
+  #pista.ver { opacity: 1; animation: flota 1.6s ease-in-out infinite; }
+  @keyframes flota { 50% { margin-top: -6px; } }
+
+  @media (orientation: portrait) {
+    #ifBotones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .if-btn { margin-top: 0; padding: 8px 10px; gap: 8px; }
+    .if-av { width: 32px; height: 32px; font-size: 16px; }
+    .if-txt b { font-size: 14px; }
+    .if-txt small, .if-led { display: none; }
+    #visor { inset: max(10px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom)); border-width: 10px; border-radius: 24px; }
+    #interfono { top: auto; right: 12px; left: 12px; bottom: max(16px, env(safe-area-inset-bottom)); width: auto; transform: none; }
+    #interfono.oculto { transform: translateY(30px); }
+    #pantalla { left: 8px; right: 8px; top: auto; bottom: max(8px, env(safe-area-inset-bottom)); width: auto; height: 60dvh; transform: translateY(115%); }
+    #pantalla.ver { transform: none; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="cargando">Preparando tu oficina…</div>
+
+<aside id="interfono" aria-label="Intercomunicador">
+  <div class="if-tit">📟 Intercomunicador</div>
+  <div id="ifBotones"></div>
+</aside>
+
+<div id="aviso" role="status"></div>
+<div id="bocadillo" role="status"></div>
+
+<section id="pantalla" aria-label="Llamada">
+  <div class="pt-cab">
+    <span class="pt-dot"></span>
+    <div class="pt-txt"><b id="ptNombre"></b><span id="ptReloj">00:00</span><a id="ptAparte" target="_blank" rel="noopener" title="Abrir en otra pestaña si el micrófono no funciona">Abrir aparte ↗</a></div>
+    <button id="colgar">Colgar</button>
+  </div>
+  <div id="ptCuerpo"></div>
+</section>
+
+<div id="pista">📱 Toca la tablet: Bodega 3D</div>
+
+<section id="visor" aria-label="Bodega 3D">
+  <div class="vs-cab">
+    <b>📦 Bodega 3D</b><span class="vs-vivo">EN VIVO</span>
+    <a id="visorAparte" target="_blank" rel="noopener">Abrir aparte ↗</a>
+    <button id="visorCerrar">✕ Cerrar</button>
+  </div>
+  <div id="visorCuerpo"></div>
+</section>
+
+<script type="module">
+  // ==========================================================
+  //  TUS ASISTENTES
+  //  - nombre / rol / saludo: lo que se ve y lo que dice al entrar.
+  //  - pelo: "corto", "largo" o "gorra".  gafas: true / false.
+  //  Para el de tutoriales: quita las // de su bloque y pon la URL.
+  // ==========================================================
+  const ASISTENTES = [
+    { id: "pedidos", nombre: "Pedidos", rol: "Pedidos de muebles", icono: "🛋️",
+      color: "#e07a3f", piel: "#f1c27d", colorPelo: "#3b2416", pelo: "largo", gafas: false,
+      saludo: "¡Hola! Soy tu asistente de pedidos. ¿Qué pedido revisamos?",
+      url: "https://nre130826-maker.github.io/asistente-pedidos/" },
+    { id: "bodega", nombre: "Bodega", rol: "Inventario y existencias", icono: "📦",
+      color: "#2a9d8f", piel: "#c98e62", colorPelo: "#1c1c1c", pelo: "gorra", gafas: false,
+      saludo: "¡Buenas! Aquí bodega. ¿Qué producto quieres consultar?",
+      url: "https://nre130826-maker.github.io/asistente-bodega/" },
+    { id: "personal", nombre: "Personal", rol: "Tu asistente personal", icono: "🧑‍💼",
+      color: "#7b61ff", piel: "#f5d0b0", colorPelo: "#6b3e26", pelo: "corto", gafas: true,
+      saludo: "¡Hola, jefe! ¿En qué te ayudo hoy?",
+      url: "https://nre130826-maker.github.io/asistente-voz-personal-DAN-/" },
+    { id: "produccion", nombre: "Producción", rol: "Órdenes de producción", icono: "🏭",
+      color: "#d4a017", piel: "#e0ac85", colorPelo: "#2b1d14", pelo: "gorra", gafas: true,
+      saludo: "¡Hola! Aquí producción. ¿Qué orden revisamos?",
+      url: "https://nre130826-maker.github.io/asistente-produccion/" },
+    // { id: "tutoriales", nombre: "Tutoriales", rol: "Ayuda con AppSheet", icono: "📘",
+    //   color: "#3a86ff", piel: "#e8b98f", colorPelo: "#2b1d14", pelo: "corto", gafas: false,
+    //   saludo: "¡Hola! ¿Qué quieres aprender de AppSheet?",
+    //   url: "https://nre130826-maker.github.io/NOMBRE-DEL-REPO/" },
+  ];
+  // ==========================================================
+  //  TABLET DEL ESCRITORIO: pon aquí el enlace de tu bodega 3D
+  // ==========================================================
+  const BODEGA_3D = "https://nre130826-maker.github.io/bodega-peim/";
+  // ==========================================================
+
+  const $ = id => document.getElementById(id);
+
+  /* ================= Interfaz (funciona aunque falle el 3D) ================= */
+  let escena3D = null; // se rellena cuando carga el 3D
+
+  ASISTENTES.forEach(a => {
+    const b = document.createElement("button");
+    b.className = "if-btn"; b.style.setProperty("--c", a.color);
+    b.innerHTML = `<span class="if-av">${a.icono}</span><span class="if-txt"><b>${a.nombre}</b><small>${a.rol}</small></span><span class="if-led"></span>`;
+    b.onclick = () => llamar(a);
+    $("ifBotones").appendChild(b);
+  });
+
+  let audio = null;
+  function timbre() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const t0 = audio.currentTime + .05;
+      for (let i = 0; i < 2; i++) {
+        const g = audio.createGain(), ini = t0 + i * .8;
+        g.gain.setValueAtTime(0, ini); g.gain.linearRampToValueAtTime(.06, ini + .02);
+        g.gain.setValueAtTime(.06, ini + .45); g.gain.linearRampToValueAtTime(0, ini + .5);
+        g.connect(audio.destination);
+        [440, 480].forEach(f => { const o = audio.createOscillator(); o.frequency.value = f; o.connect(g); o.start(ini); o.stop(ini + .52); });
+      }
+    } catch (e) {}
+  }
+  function aviso(t) { const el = $("aviso"); if (t) { el.textContent = t; el.classList.add("ver"); } else el.classList.remove("ver"); }
+  let bocadilloOn = false;
+  function bocadillo(t) {
+    const el = $("bocadillo");
+    if (t) { el.textContent = t; bocadilloOn = true; el.classList.add("ver"); }
+    else { el.classList.remove("ver"); bocadilloOn = false; }
+  }
+
+  let estado = "libre", tms = [], reloj = null, enLlamada = false;
+  const marcos = {};
+  const despues = (ms, fn) => tms.push(setTimeout(fn, ms));
+  const limpiar = () => { tms.forEach(clearTimeout); tms = []; };
+
+  function llamar(a) {
+    if (estado !== "libre") return;
+    estado = "entrando";
+    $("interfono").classList.add("oculto");
+    aviso(`📞 Llamando a ${a.nombre}…`);
+    timbre();
+    if (!escena3D) { despues(1200, () => { aviso(""); abrirPantalla(a); }); return; }
+    escena3D.entrar(a, {
+      sentado: () => aviso(""),
+      saludo: () => { bocadillo(a.saludo); escena3D.hablar(2000); escena3D.saludar(); despues(2600, () => bocadillo("")); },
+      listo: () => abrirPantalla(a),
+    });
+  }
+
+  function abrirPantalla(a) {
+    estado = "llamada"; enLlamada = true;
+    $("ptNombre").textContent = a.icono + " " + a.nombre;
+    $("ptAparte").href = a.url;
+    if (!marcos[a.id]) {
+      const f = document.createElement("iframe");
+      f.src = a.url; f.title = a.nombre;
+      f.allow = "microphone; camera; autoplay; clipboard-read; clipboard-write";
+      $("ptCuerpo").appendChild(f); marcos[a.id] = f;
+    }
+    Object.values(marcos).forEach(m => m.classList.toggle("activo", m === marcos[a.id]));
+    $("pantalla").classList.add("ver");
+    const ini = Date.now();
+    const pinta = () => { const s = Math.floor((Date.now() - ini) / 1000); $("ptReloj").textContent = "En llamada · " + String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
+    pinta(); clearInterval(reloj); reloj = setInterval(pinta, 1000);
+  }
+
+  function colgar() {
+    if (estado === "libre" || estado === "saliendo") return;
+    limpiar(); clearInterval(reloj);
+    $("pantalla").classList.remove("ver"); enLlamada = false;
+    aviso("");
+    const fin = () => { estado = "libre"; $("interfono").classList.remove("oculto"); };
+    if (!escena3D) { fin(); return; }
+    if (estado === "entrando") { bocadillo(""); escena3D.reiniciar(); fin(); return; }
+    estado = "saliendo";
+    bocadillo("¡Hasta luego! Aquí estoy si me necesitas."); escena3D.hablar(1100);
+    despues(1400, () => bocadillo(""));
+    escena3D.salir(fin);
+  }
+  $("colgar").onclick = colgar;
+
+  /* ---------- Tablet / visor de la bodega ---------- */
+  let visorAbierto = false;
+  function abrirVisor() {
+    if (visorAbierto) return;
+    visorAbierto = true;
+    const cuerpo = $("visorCuerpo");
+    if (!cuerpo.firstChild) {
+      if (BODEGA_3D.startsWith("http")) {
+        const f = document.createElement("iframe");
+        f.src = BODEGA_3D; f.title = "Bodega 3D";
+        f.allow = "fullscreen; accelerometer; gyroscope; xr-spatial-tracking; autoplay";
+        cuerpo.appendChild(f);
+      } else cuerpo.innerHTML = '<div class="vs-falta"><div>Falta el enlace de la bodega 3D.<br>Ponlo en el código, en la línea <b>BODEGA_3D</b>.</div></div>';
+    }
+    $("visorAparte").href = BODEGA_3D.startsWith("http") ? BODEGA_3D : "#";
+    $("visor").classList.add("ver");
+    $("interfono").classList.add("oculto");
+  }
+  function cerrarVisor() {
+    if (!visorAbierto) return;
+    visorAbierto = false;
+    $("visor").classList.remove("ver");
+    if (estado === "libre") $("interfono").classList.remove("oculto");
+    if (escena3D) escena3D.alejarTablet();
+  }
+  $("visorCerrar").onclick = cerrarVisor;
+  addEventListener("keydown", e => { if (e.key === "Escape") { if (visorAbierto) cerrarVisor(); else colgar(); } });
+
+  /* ================= Escena 3D ================= */
+  let THREE, RoundedBoxGeometry, RoomEnvironment;
+  try {
+    THREE = await import("three");
+    ({ RoundedBoxGeometry } = await import("three/addons/geometries/RoundedBoxGeometry.js"));
+    ({ RoomEnvironment } = await import("three/addons/environments/RoomEnvironment.js"));
+    iniciar3D();
+  } catch (e) {
+    console.warn("Sin 3D:", e);
+    $("cargando").textContent = "";
+  }
+
+  function iniciar3D() {
+    const movil = matchMedia("(pointer: coarse)").matches;
+    const canvas = $("c");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, movil ? 1.75 : 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#2a2420");
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 50);
+
+    /* ---------- Utilidades ---------- */
+    const mat = (color, rough = .8, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0, envMapIntensity: .55, ...extra });
+    function malla(geo, material, pos = [0, 0, 0], padre = scene, opts = {}) {
+      const m = new THREE.Mesh(geo, material);
+      m.position.set(...pos);
+      if (opts.rot) m.rotation.set(...opts.rot);
+      if (opts.esc) m.scale.set(...opts.esc);
+      m.castShadow = opts.sombra !== false; m.receiveShadow = true;
+      padre.add(m); return m;
+    }
+    const caja = (w, h, d, r = .02) => r > 0 ? new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2, h / 2, d / 2)) : new THREE.BoxGeometry(w, h, d);
+    const capsula = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 14);
+    const esfera = (r, ws = 24, hs = 16) => new THREE.SphereGeometry(r, ws, hs);
+    function cilindroEntre(a, b, r, material, padre) {
+      const va = new THREE.Vector3(...a), vb = new THREE.Vector3(...b);
+      const len = va.distanceTo(vb);
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), material);
+      m.position.copy(va).add(vb).multiplyScalar(.5);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vb.clone().sub(va).normalize());
+      m.castShadow = true; padre.add(m); return m;
+    }
+    function textura(w, h, dibujar, rep) {
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      dibujar(cv.getContext("2d"), w, h);
+      const t = new THREE.CanvasTexture(cv);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...rep); }
+      return t;
+    }
+    function madera(base, vetas, tablas = 8) {
+      return (g, w, h) => {
+        const alto = h / tablas;
+        for (let i = 0; i < tablas; i++) {
+          const v = (Math.random() - .5) * 18;
+          g.fillStyle = `hsl(${base[0]}, ${base[1]}%, ${base[2] + v * .3}%)`;
+          g.fillRect(0, i * alto, w, alto);
+          g.strokeStyle = vetas; g.globalAlpha = .18; g.lineWidth = 1;
+          for (let k = 0; k < 7; k++) {
+            g.beginPath(); const y0 = i * alto + Math.random() * alto;
+            g.moveTo(0, y0);
+            for (let x = 0; x <= w; x += 32) g.lineTo(x, y0 + Math.sin(x / 50 + k) * 3);
+            g.stroke();
+          }
+          g.globalAlpha = .5; g.fillStyle = vetas; g.fillRect(0, i * alto, w, 2);
+          const corte = Math.random() * w; g.fillRect(corte, i * alto, 2, alto);
+          g.globalAlpha = 1;
+        }
+      };
+    }
+
+    /* ---------- Luces ---------- */
+    scene.add(new THREE.HemisphereLight("#fff4e2", "#7a5a3c", 1.1));
+    const sol = new THREE.DirectionalLight("#fff1dc", 2.4);
+    sol.position.set(-2.2, 4.6, 3.2); sol.target.position.set(.2, 0, -2);
+    sol.castShadow = true;
+    sol.shadow.mapSize.set(movil ? 1024 : 2048, movil ? 1024 : 2048);
+    Object.assign(sol.shadow.camera, { left: -4.5, right: 4.5, top: 4.5, bottom: -4.5, near: .5, far: 15 });
+    sol.shadow.bias = -0.0004; sol.shadow.normalBias = .02;
+    scene.add(sol, sol.target);
+    const foco = new THREE.PointLight("#ffd7a1", 9, 0, 2);
+    foco.position.set(0, 2.3, -1.3); scene.add(foco);
+
+    /* ---------- Habitación ---------- */
+    const pared = mat("#ebe1d2", .95), paredLat = mat("#e3d6c3", .95);
+    const suelo = malla(new THREE.PlaneGeometry(6, 7), mat("#ffffff", .7, { map: textura(512, 512, madera([30, 42, 52], "#5a3a1e"), [3, 3.5]) }), [0, 0, -.85], scene, { rot: [-Math.PI / 2, 0, 0], sombra: false });
+    malla(new THREE.PlaneGeometry(6, 7), mat("#f3eee6", 1, { emissive: "#d8cfc2", emissiveIntensity: .55 }), [0, 2.8, -.85], scene, { rot: [Math.PI / 2, 0, 0], sombra: false });
+    malla(new THREE.BoxGeometry(6, 2.8, .1), pared, [0, 1.4, -4.25], scene, { sombra: false });
+    malla(new THREE.BoxGeometry(.1, 2.8, 6.7), paredLat, [3.05, 1.4, -.85], scene, { sombra: false });
+    // Pared izquierda con hueco de puerta (z de -2.1 a -1.1)
+    malla(new THREE.BoxGeometry(.1, 2.8, 2.1), paredLat, [-3.05, 1.4, -3.15], scene, { sombra: false });
+    malla(new THREE.BoxGeometry(.1, 2.8, 3.6), paredLat, [-3.05, 1.4, .7], scene, { sombra: false });
+    malla(new THREE.BoxGeometry(.1, .7, 1.0), paredLat, [-3.05, 2.45, -1.6], scene, { sombra: false });
+    // Pasillo detrás de la puerta
+    const pasillo = mat("#5a4a3a", 1);
+    malla(new THREE.BoxGeometry(2, .02, 2.4), pasillo, [-4.1, 0, -1.6], scene, { sombra: false });
+    malla(new THREE.BoxGeometry(.1, 2.8, 2.4), mat("#4a3c2f", 1), [-5.1, 1.4, -1.6], scene, { sombra: false });
+    malla(new THREE.BoxGeometry(2, 2.8, .1), mat("#4a3c2f", 1), [-4.1, 1.4, -2.85], scene, { sombra: false });
+    malla(new THREE.BoxGeometry(2, 2.8, .1), mat("#4a3c2f", 1), [-4.1, 1.4, -.35], scene, { sombra: false });
+    // Zócalos
+    const zocalo = mat("#d2c3ab", .8);
+    malla(new THREE.BoxGeometry(6, .1, .03), zocalo, [0, .05, -4.19], scene, { sombra: false });
+    malla(new THREE.BoxGeometry(.03, .1, 6.7), zocalo, [2.99, .05, -.85], scene, { sombra: false });
+    // Marco de la puerta y hoja
+    const marco = mat("#7a5a3d", .6);
+    malla(caja(.16, 2.15, .08, .01), marco, [-2.98, 1.075, -2.12]);
+    malla(caja(.16, 2.15, .08, .01), marco, [-2.98, 1.075, -1.08]);
+    malla(caja(.16, .08, 1.12, .01), marco, [-2.98, 2.14, -1.6]);
+    const bisagra = new THREE.Group(); bisagra.position.set(-2.97, 0, -2.08); scene.add(bisagra);
+    const hojaMat = mat("#a77c52", .55);
+    malla(caja(.05, 2.08, .96, .015), hojaMat, [0, 1.04, .48], bisagra);
+    [[1.5, .55], [.55, .75]].forEach(([y, h]) => malla(caja(.02, h, .7, .01), mat("#8d6440", .6), [.03, y, .48], bisagra));
+    malla(esfera(.035), mat("#e9c46a", .25, { metalness: .9 }), [.06, 1.0, .86], bisagra);
+
+    // Ventana con la ciudad
+    function pintarCiudad(g, w, h) {
+      const H = new Date().getHours(), noche = H < 6 || H >= 19, tarde = H >= 17 && H < 19;
+      const gr = g.createLinearGradient(0, 0, 0, h);
+      if (noche) { gr.addColorStop(0, "#0f1a33"); gr.addColorStop(1, "#2b3d66"); }
+      else if (tarde) { gr.addColorStop(0, "#f7b267"); gr.addColorStop(1, "#f4845f"); }
+      else { gr.addColorStop(0, "#7fc4f0"); gr.addColorStop(1, "#d4ecfb"); }
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      let x = 0;
+      while (x < w) {
+        const bw = 40 + Math.random() * 60, bh = h * (.3 + Math.random() * .5);
+        g.fillStyle = noche ? "#1c2436" : "#8da2b8"; g.fillRect(x, h - bh, bw, bh);
+        g.fillStyle = noche ? "#ffd97a" : "rgba(255,255,255,.35)";
+        for (let yy = h - bh + 10; yy < h - 10; yy += 18) for (let xx = x + 8; xx < x + bw - 8; xx += 14) if (Math.random() < (noche ? .35 : .5)) g.fillRect(xx, yy, 6, 9);
+        x += bw + 6;
+      }
+    }
+    const cristal = new THREE.MeshBasicMaterial({ map: textura(512, 384, pintarCiudad) });
+    malla(new THREE.PlaneGeometry(1.6, 1.2), cristal, [1.5, 1.55, -4.19], scene, { sombra: false });
+    const marcoV = mat("#f7f3ec", .5);
+    [[1.5, 2.17, 1.72, .06], [1.5, .93, 1.72, .06], [1.5, 1.55, .05, 1.2], [.66, 1.55, .06, 1.3], [2.34, 1.55, .06, 1.3]].forEach(([x, y, w, h]) =>
+      malla(caja(w, h, .06, .01), marcoV, [x, y, -4.16]));
+    malla(caja(1.85, .05, .18, .01), mat("#d9cfc0", .6), [1.5, .88, -4.12]);
+
+    // Cuadro
+    const arte = textura(256, 192, (g, w, h) => {
+      g.fillStyle = "#f2e8d8"; g.fillRect(0, 0, w, h);
+      g.fillStyle = "#e07a3f"; g.beginPath(); g.arc(80, 80, 45, 0, 7); g.fill();
+      g.globalAlpha = .85; g.fillStyle = "#2a9d8f"; g.fillRect(110, 60, 110, 80);
+      g.fillStyle = "#7b61ff"; g.beginPath(); g.moveTo(30, 170); g.lineTo(110, 110); g.lineTo(190, 170); g.fill();
+    });
+    malla(caja(.9, .68, .04, .01), mat("#5b4636", .5), [-1.6, 1.65, -4.18]);
+    malla(new THREE.PlaneGeometry(.8, .58), mat("#fff", .9, { map: arte }), [-1.6, 1.65, -4.155], scene, { sombra: false });
+
+    // Reloj
+    const relojG = new THREE.Group(); relojG.position.set(-.35, 2.2, -4.17); scene.add(relojG);
+    malla(new THREE.CylinderGeometry(.2, .2, .04, 40), mat("#3a3f4b", .4), [0, 0, 0], relojG, { rot: [Math.PI / 2, 0, 0] });
+    malla(new THREE.CylinderGeometry(.18, .18, .045, 40), mat("#ffffff", .6), [0, 0, .003], relojG, { rot: [Math.PI / 2, 0, 0], sombra: false });
+    const manH = new THREE.Group(), manM = new THREE.Group(); manH.position.z = manM.position.z = .03; relojG.add(manH, manM);
+    malla(new THREE.BoxGeometry(.018, .1, .008), mat("#222"), [0, .05, 0], manH, { sombra: false });
+    malla(new THREE.BoxGeometry(.012, .15, .008), mat("#222"), [0, .075, .006], manM, { sombra: false });
+    malla(esfera(.015), mat("#e5484d"), [0, 0, .015], relojG, { sombra: false });
+
+    // Sofá
+    const sofa = new THREE.Group(); sofa.position.set(1.5, 0, -3.75); scene.add(sofa);
+    const tela = mat("#4f6d7a", .95), tela2 = mat("#5d7d8b", .95);
+    malla(caja(2.0, .42, .85, .08), tela, [0, .3, 0], sofa);
+    malla(caja(2.0, .55, .25, .08), tela, [0, .78, -.3], sofa);
+    malla(caja(.22, .62, .85, .08), mat("#456170", .95), [-1.05, .4, 0], sofa);
+    malla(caja(.22, .62, .85, .08), mat("#456170", .95), [1.05, .4, 0], sofa);
+    [-.62, 0, .62].forEach(x => { malla(caja(.6, .14, .6, .06), tela2, [x, .58, .07], sofa); malla(caja(.58, .42, .14, .06), tela2, [x, .85, -.15], sofa); });
+    malla(caja(.32, .32, .12, .06), mat("#e9c46a", .9), [.65, .82, 0], sofa, { rot: [-.2, 0, .25] });
+
+    // Planta grande
+    const planta = new THREE.Group(); planta.position.set(-2.45, 0, -3.65); scene.add(planta);
+    malla(new THREE.CylinderGeometry(.26, .19, .5, 28), mat("#e5e7eb", .4), [0, .25, 0], planta);
+    malla(new THREE.CylinderGeometry(.24, .24, .03, 28), mat("#3b2a1d", 1), [0, .49, 0], planta);
+    const verdes = ["#2d6a4f", "#40916c", "#52b788", "#1b4332"];
+    for (let i = 0; i < 16; i++) {
+      const hoja = new THREE.Group(); hoja.position.y = .5;
+      hoja.rotation.y = i * 2.4; hoja.rotation.z = .25 + (i % 4) * .14;
+      malla(esfera(.5, 16, 10), mat(verdes[i % 4], .7), [0, .5 + (i % 3) * .08, 0], hoja, { esc: [.13, 1, .035] });
+      planta.add(hoja);
+    }
+
+    // Estantería en la pared derecha
+    const estante = new THREE.Group(); estante.position.set(2.78, 0, -2.2); scene.add(estante);
+    const madOsc = mat("#7a5235", .6);
+    malla(caja(.4, 1.9, 1.1, .02), madOsc, [0, .95, 0], estante);
+    malla(caja(.36, 1.82, 1.02, .01), mat("#5e3e27", .7), [-.03, .95, 0], estante);
+    [.35, .8, 1.25, 1.7].forEach(y => malla(caja(.38, .03, 1.04, .005), madOsc, [-.02, y, 0], estante));
+    const colLibros = ["#e07a3f", "#2a9d8f", "#7b61ff", "#e9c46a", "#457b9d", "#e5484d"];
+    [.37, .82, 1.27].forEach((y, fila) => {
+      let z = -.45;
+      while (z < .4) { const g = .04 + Math.random() * .04, h = .26 + Math.random() * .12;
+        malla(caja(.24, h, g, .005), mat(colLibros[(Math.random() * 6) | 0], .7), [-.05, y + h / 2 + .015, z + g / 2], estante); z += g + .005; }
+    });
+
+    // Alfombra
+    malla(caja(2.6, .012, 2.0, .006), mat("#9c6b4e", 1), [0, .006, -1.25], scene, { sombra: false });
+    malla(caja(2.4, .014, 1.8, .006), mat("#b8866a", 1), [0, .007, -1.25], scene, { sombra: false });
+
+    // Lámpara de techo
+    malla(new THREE.CylinderGeometry(.006, .006, .45, 6), mat("#444"), [0, 2.58, -1.3]);
+    malla(new THREE.CylinderGeometry(.07, .26, .24, 32, 1, true), mat("#2f3440", .5, { side: THREE.DoubleSide }), [0, 2.25, -1.3]);
+    malla(esfera(.07), new THREE.MeshStandardMaterial({ color: "#fff", emissive: "#ffe3a3", emissiveIntensity: 2.5 }), [0, 2.17, -1.3], scene, { sombra: false });
+
+    // Silla de visitas
+    const silla = new THREE.Group(); silla.position.set(0, 0, -.82); scene.add(silla);
+    const tapiz = mat("#3d4452", .85);
+    malla(caja(.56, .09, .52, .04), tapiz, [0, .45, 0], silla);
+    malla(caja(.56, .66, .09, .04), tapiz, [0, .83, -.24], silla, { rot: [-.08, 0, 0] });
+    [[-.24, -.2], [.24, -.2], [-.24, .2], [.24, .2]].forEach(([x, z]) => malla(new THREE.CylinderGeometry(.02, .018, .42, 8), mat("#222", .4, { metalness: .7 }), [x, .21, z], silla));
+
+    // Tu escritorio
+    const mesaMat = mat("#ffffff", .45, { map: textura(512, 256, madera([24, 45, 32], "#2b170a", 4), [1, 1]) });
+    malla(caja(2.3, .06, 1.0, .02), mesaMat, [0, .76, .32]);
+    malla(caja(2.2, .68, .04, .01), mat("#5e3b22", .6), [0, .38, -.15]);
+    malla(caja(.06, .72, .9, .01), mat("#5e3b22", .6), [-1.08, .37, .32]);
+    malla(caja(.06, .72, .9, .01), mat("#5e3b22", .6), [1.08, .37, .32]);
+    // Taza
+    const taza = new THREE.Group(); taza.position.set(-.62, .79, .42); scene.add(taza);
+    malla(new THREE.CylinderGeometry(.045, .04, .1, 24), mat("#f4f1ea", .3), [0, .05, 0], taza);
+    malla(new THREE.CylinderGeometry(.04, .04, .005, 24), mat("#4a2c18", .2), [0, .095, 0], taza);
+    malla(new THREE.TorusGeometry(.028, .008, 8, 16, Math.PI), mat("#f4f1ea", .3), [.045, .05, 0], taza, { rot: [0, 0, -Math.PI / 2] });
+    // Papeles y libreta
+    malla(caja(.3, .006, .4, .002), mat("#fbfaf7", .9), [.45, .793, .4], scene, { rot: [0, .25, 0] });
+    malla(caja(.28, .006, .38, .002), mat("#f1efe9", .9), [.48, .799, .42], scene, { rot: [0, .1, 0] });
+    malla(caja(.2, .02, .28, .004), mat("#2a9d8f", .6), [.85, .8, .25], scene, { rot: [0, -.3, 0] });
+    // Lapicero
+    malla(new THREE.CylinderGeometry(.04, .04, .11, 20), mat("#3d4452", .4), [-.95, .845, .1]);
+    malla(new THREE.CylinderGeometry(.005, .005, .18, 6), mat("#e5484d", .4), [-.96, .92, .1], scene, { rot: [0, 0, .15] });
+    malla(new THREE.CylinderGeometry(.005, .005, .18, 6), mat("#2a9d8f", .4), [-.94, .92, .11], scene, { rot: [.15, 0, -.1] });
+    // Planta pequeña en el escritorio
+    malla(new THREE.CylinderGeometry(.06, .05, .09, 20), mat("#c9a27c", .7), [.98, .835, .55]);
+    for (let i = 0; i < 6; i++) malla(esfera(.05, 10, 8), mat(verdes[i % 3], .7), [.98 + Math.cos(i) * .03, .9 + (i % 2) * .03, .55 + Math.sin(i) * .03]);
+
+    // Tablet con la bodega 3D
+    const pintarTablet = (g, w, h) => {
+      const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#14233b"); gr.addColorStop(1, "#0b1220");
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      g.strokeStyle = "rgba(120,180,255,.18)"; g.lineWidth = 1;
+      for (let i = -20; i < 40; i++) { g.beginPath(); g.moveTo(i * 30, h); g.lineTo(i * 30 + h * 1.2, 0); g.stroke(); g.beginPath(); g.moveTo(i * 30, h); g.lineTo(i * 30 - h * 1.2, 0); g.stroke(); }
+      const iso = (x, y, z) => [w / 2 + (x - y) * 26, h * .62 + (x + y) * 13 - z];
+      const cubo = (x, y, z, alto, c) => {
+        const t = [iso(x, y, z + alto), iso(x + 1, y, z + alto), iso(x + 1, y + 1, z + alto), iso(x, y + 1, z + alto)];
+        const poly = (pts, col) => { g.fillStyle = col; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(...p) : g.moveTo(...p)); g.fill(); };
+        poly(t, c[0]);
+        poly([iso(x + 1, y, z), iso(x + 1, y + 1, z), iso(x + 1, y + 1, z + alto), iso(x + 1, y, z + alto)], c[1]);
+        poly([iso(x, y + 1, z), iso(x + 1, y + 1, z), iso(x + 1, y + 1, z + alto), iso(x, y + 1, z + alto)], c[2]);
+      };
+      const caj = [["#f4a261", "#c9803f", "#a8692f"], ["#2a9d8f", "#21796e", "#195e55"], ["#e9c46a", "#c3a352", "#9e843f"]];
+      for (let fila = -3; fila <= 2; fila += 2) for (let col = -3; col <= 2; col++)
+        for (let n = 0; n < 1 + ((col + fila + 6) % 3); n++) cubo(col, fila, n * 22, 20, caj[(col + n + 6) % 3]);
+      g.fillStyle = "rgba(0,0,0,.45)"; g.fillRect(0, 0, w, 64);
+      g.fillStyle = "#ffffff"; g.font = "bold 34px system-ui, sans-serif"; g.fillText("📦 Bodega 3D", 22, 44);
+      g.fillStyle = "#ff6b6b"; g.font = "bold 22px system-ui, sans-serif"; g.fillText("● EN VIVO", w - 140, 42);
+      g.fillStyle = "rgba(255,255,255,.92)"; g.font = "bold 26px system-ui, sans-serif"; g.textAlign = "center";
+      g.fillText("Toca para abrir", w / 2, h - 22);
+    };
+    const tablet = new THREE.Group(); tablet.position.set(.2, .79, .06); tablet.rotation.y = -.12; scene.add(tablet);
+    const tabletInc = new THREE.Group(); tabletInc.rotation.x = -1.0; tablet.add(tabletInc);
+    malla(caja(.36, .25, .016, .014), mat("#1b1d22", .3, { metalness: .4 }), [0, .125, 0], tabletInc);
+    const pantallaTab = new THREE.MeshBasicMaterial({ map: textura(512, 352, pintarTablet) });
+    malla(new THREE.PlaneGeometry(.33, .225), pantallaTab, [0, .125, .0085], tabletInc, { sombra: false });
+    malla(caja(.12, .015, .09, .006), mat("#2b2e35", .4, { metalness: .5 }), [0, .008, -.06], tablet);
+    const tabletVista = new THREE.Vector3(.2, 1.12, .5), tabletMira = new THREE.Vector3(.2, .86, .02);
+    let zoom = 0, zoomObj = 0;
+
+    // Tocar la tablet
+    const rayo = new THREE.Raycaster(), puntero = new THREE.Vector2();
+    let ini = null;
+    const tocaTablet = e => {
+      puntero.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+      rayo.setFromCamera(puntero, camera);
+      return rayo.intersectObject(tablet, true).length > 0;
+    };
+    canvas.addEventListener("pointerdown", e => { ini = { x: e.clientX, y: e.clientY }; });
+    canvas.addEventListener("pointerup", e => {
+      if (!ini || Math.hypot(e.clientX - ini.x, e.clientY - ini.y) > 10 || visorAbierto) return;
+      if (tocaTablet(e)) { zoomObj = 1; setTimeout(abrirVisor, 650); }
+    });
+    canvas.addEventListener("pointermove", e => { if (e.pointerType === "mouse") canvas.style.cursor = tocaTablet(e) ? "pointer" : ""; });
+
+    /* ---------- El asistente (personaje) ---------- */
+    let npc = null;
+    function crearPersonaje(a) {
+      const camisa = mat(a.color, .75), manga = mat(new THREE.Color(a.color).multiplyScalar(.8).getStyle(), .75);
+      const piel = mat(a.piel, .55), pant = mat("#2d3142", .8), pelo = mat(a.colorPelo, .6), negro = mat("#1d1d1d", .4);
+      const raiz = new THREE.Group();
+      const cadera = new THREE.Group(); cadera.position.y = .92; raiz.add(cadera);
+      malla(caja(.34, .17, .21, .07), pant, [0, 0, 0], cadera);
+      const torso = new THREE.Group(); cadera.add(torso);
+      malla(capsula(.17, .26), camisa, [0, .27, 0], torso, { esc: [1.12, 1, .74] });
+      if (a.pelo === "gorra") { [-1, 1].forEach(s => malla(caja(.11, .36, .16, .05), manga, [s * .11, .26, .02], torso)); }
+      malla(caja(.07, .09, .01, .005), mat("#ffffff", .5), [.08, .32, .13], torso);
+      malla(caja(.07, .02, .012, .004), manga, [.08, .36, .131], torso);
+      malla(new THREE.CylinderGeometry(.05, .055, .1, 16), piel, [0, .5, 0], torso);
+      // Cabeza
+      const cabeza = new THREE.Group(); cabeza.position.y = .67; torso.add(cabeza);
+      malla(esfera(.155, 32, 24), piel, [0, 0, 0], cabeza, { esc: [1, 1.06, 1] });
+      const ojos = new THREE.Group(); cabeza.add(ojos);
+      [-1, 1].forEach(s => {
+        malla(esfera(.026), mat("#ffffff", .3), [s * .055, .02, .135], ojos, { esc: [1, 1.1, .6], sombra: false });
+        malla(esfera(.017), mat("#1d1d1d", .2), [s * .055, .02, .148], ojos, { sombra: false });
+        malla(esfera(.005), mat("#ffffff", .1), [s * .05 + .004, .028, .163], ojos, { sombra: false });
+        malla(caja(.05, .012, .01, .004), pelo, [s * .056, .065, .142], cabeza, { rot: [0, 0, -s * .12], sombra: false });
+        malla(esfera(.03, 12, 8), mat("#e5484d", .9, { transparent: true, opacity: .22 }), [s * .09, -.035, .118], cabeza, { esc: [1, .7, .4], sombra: false });
+      });
+      malla(esfera(.022), mat(new THREE.Color(a.piel).multiplyScalar(.92).getStyle(), .5), [0, -.015, .155], cabeza, { sombra: false });
+      const boca = malla(capsula(.011, .03), mat("#7a2e2e", .4), [0, -.07, .148], cabeza, { rot: [0, 0, Math.PI / 2], esc: [1, 1, .5], sombra: false });
+      // Pelo
+      const casco = (color, theta = Math.PI * .55) => new THREE.Mesh(new THREE.SphereGeometry(.168, 32, 16, 0, Math.PI * 2, 0, theta), color);
+      if (a.pelo === "gorra") {
+        const g = casco(camisa, Math.PI * .5); g.position.y = .06; g.scale.set(1, .9, 1); g.castShadow = true; cabeza.add(g);
+        malla(new THREE.CylinderGeometry(.13, .13, .012, 24, 1, false, -Math.PI / 2, Math.PI), manga, [0, .065, .1], cabeza, { esc: [1, 1, 1.2] });
+        malla(esfera(.018), manga, [0, .21, 0], cabeza);
+        malla(caja(.33, .05, .26, .02), pelo, [0, -.01, -.04], cabeza, { sombra: false });
+      } else {
+        const g = casco(pelo); g.position.set(0, .012, -.012); g.rotation.x = -.25; g.castShadow = true; cabeza.add(g);
+        if (a.pelo === "largo") malla(capsula(.14, .22), pelo, [0, -.13, -.07], cabeza, { esc: [1.05, 1, .55] });
+      }
+      if (a.gafas) {
+        [-1, 1].forEach(s => malla(new THREE.TorusGeometry(.04, .006, 8, 24), negro, [s * .055, .02, .165], cabeza, { sombra: false }));
+        malla(new THREE.BoxGeometry(.03, .006, .006), negro, [0, .025, .17], cabeza, { sombra: false });
+      }
+      // Auriculares con micrófono
+      malla(new THREE.TorusGeometry(.172, .011, 8, 32, Math.PI), negro, [0, .01, -.01], cabeza);
+      [-1, 1].forEach(s => malla(new THREE.CylinderGeometry(.045, .045, .04, 20), negro, [s * .168, 0, 0], cabeza, { rot: [0, 0, Math.PI / 2] }));
+      cilindroEntre([-.17, -.03, .02], [-.05, -.085, .14], .006, negro, cabeza);
+      malla(esfera(.014), negro, [-.045, -.087, .145], cabeza);
+      // Brazos y piernas
+      const brazo = s => {
+        const hombro = new THREE.Group(); hombro.position.set(s * .23, .41, 0); torso.add(hombro);
+        malla(capsula(.055, .2), manga, [0, -.13, 0], hombro);
+        const codo = new THREE.Group(); codo.position.y = -.27; hombro.add(codo);
+        malla(capsula(.05, .16), manga, [0, -.1, 0], codo);
+        malla(esfera(.055), piel, [0, -.24, 0], codo, { esc: [.9, 1.1, .8] });
+        return { hombro, codo };
+      };
+      const pierna = s => {
+        const art = new THREE.Group(); art.position.set(s * .095, -.03, 0); cadera.add(art);
+        malla(capsula(.075, .3), pant, [0, -.21, 0], art);
+        const rodilla = new THREE.Group(); rodilla.position.y = -.43; art.add(rodilla);
+        malla(capsula(.065, .3), pant, [0, -.2, 0], rodilla);
+        malla(caja(.11, .08, .25, .035), negro, [0, -.43, .045], rodilla);
+        return { art, rodilla };
+      };
+      const p = { raiz, cadera, torso, cabeza, ojos, boca, bI: brazo(-1), bD: brazo(1), pI: pierna(-1), pD: pierna(1) };
+      raiz.visible = false;
+      scene.add(raiz);
+      return p;
+    }
+
+    /* ---------- Movimiento del personaje ---------- */
+    const SILLA = new THREE.Vector3(0, 0, -.82);
+    const RUTA = [[-4.4, -1.6], [-2.6, -1.6], [-1.0, -.55], [0, -.36]].map(([x, z]) => new THREE.Vector3(x, 0, z));
+    const anim = { modo: "oculto", s: 0, sentar: 0, andar: 0, fase: 0, saludo: 0, habla: 0, rumbo: Math.PI / 2, ruta: RUTA, alFinal: null, sentarObj: 0 };
+    let puertaObj = 0, puertaAng = 0;
+
+    function largoRuta(r) { let l = 0; for (let i = 1; i < r.length; i++) l += r[i].distanceTo(r[i - 1]); return l; }
+    function puntoRuta(r, s) {
+      for (let i = 1; i < r.length; i++) {
+        const l = r[i].distanceTo(r[i - 1]);
+        if (s <= l) return { p: r[i - 1].clone().lerp(r[i], s / l), dir: r[i].clone().sub(r[i - 1]) };
+        s -= l;
+      }
+      return { p: r[r.length - 1].clone(), dir: r[r.length - 1].clone().sub(r[r.length - 2]), fin: true };
+    }
+    const esperas = [];
+    const luego = (seg, fn) => esperas.push({ t: seg, fn });
+
+    const api = {
+      entrar(a, cb) {
+        if (npc) { scene.remove(npc.raiz); }
+        npc = crearPersonaje(a);
+        Object.assign(anim, { modo: "espera", s: 0, sentar: 0, sentarObj: 0, andar: 0, saludo: 0, habla: 0, rumbo: Math.PI / 2, ruta: RUTA });
+        npc.raiz.position.copy(RUTA[0]);
+        esperas.length = 0;
+        luego(.9, () => { puertaObj = 1.45; });
+        luego(1.4, () => { npc.raiz.visible = true; anim.modo = "andando"; });
+        anim.alFinal = () => {
+          anim.modo = "sentandose"; anim.sentarObj = 1; puertaObj = 0;
+          luego(.7, () => { anim.modo = "sentado"; cb.sentado(); });
+          luego(1.0, cb.saludo);
+          luego(1.6, cb.listo);
+        };
+      },
+      salir(fin) {
+        esperas.length = 0;
+        luego(1.2, () => { anim.sentarObj = 0; anim.modo = "levantandose"; });
+        luego(1.9, () => { puertaObj = 1.45; anim.modo = "andando"; anim.s = 0; anim.ruta = RUTA.slice().reverse();
+          anim.alFinal = () => { npc.raiz.visible = false; anim.modo = "oculto"; luego(.3, () => { puertaObj = 0; fin(); }); }; });
+      },
+      reiniciar() { esperas.length = 0; anim.modo = "oculto"; puertaObj = 0; if (npc) npc.raiz.visible = false; },
+      hablar(ms) { anim.habla = ms / 1000; },
+      saludar() { anim.saludo = 1.8; },
+      alejarTablet() { zoomObj = 0; },
+    };
+
+    /* ---------- Cámara ---------- */
+    const mira = new THREE.Vector3(-.2, 1.0, -1.6), miraObj = new THREE.Vector3();
+    const raton = { x: 0, y: 0 }, ratonS = { x: 0, y: 0 };
+    addEventListener("pointermove", e => { if (e.pointerType === "mouse") { raton.x = e.clientX / innerWidth - .5; raton.y = e.clientY / innerHeight - .5; } });
+    let despX = 0, despY = 0;
+    function ajustar() {
+      const w = innerWidth, h = innerHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.fov = w / h < 1 ? 64 : w / h < 1.3 ? 54 : 45;
+      camera.updateProjectionMatrix();
+    }
+    addEventListener("resize", ajustar); ajustar();
+
+    /* ---------- Bucle ---------- */
+    const reloj3D = new THREE.Clock();
+    const tmp = new THREE.Vector3();
+    const lerp = THREE.MathUtils.lerp;
+    let parpadeo = 3;
+    function cuadro() {
+      const dt = Math.min(reloj3D.getDelta(), .05) * (window.__vel || 1), t = reloj3D.elapsedTime;
+      for (let i = esperas.length - 1; i >= 0; i--) { esperas[i].t -= dt; if (esperas[i].t <= 0) { const f = esperas[i].fn; esperas.splice(i, 1); f(); } }
+
+      // Puerta
+      puertaAng = lerp(puertaAng, puertaObj, 1 - Math.exp(-dt * 4));
+      bisagra.rotation.y = puertaAng;
+
+      // Reloj de pared
+      const d = new Date();
+      manH.rotation.z = -((d.getHours() % 12) + d.getMinutes() / 60) / 12 * Math.PI * 2;
+      manM.rotation.z = -(d.getMinutes() + d.getSeconds() / 60) / 60 * Math.PI * 2;
+
+      if (npc && npc.raiz.visible) {
+        const r = npc.raiz;
+        // Caminar por la ruta
+        if (anim.modo === "andando") {
+          anim.s += dt * 1.15;
+          const q = puntoRuta(anim.ruta, anim.s);
+          r.position.copy(q.p);
+          anim.rumbo = Math.atan2(q.dir.x, q.dir.z);
+          if (q.fin || anim.s >= largoRuta(anim.ruta)) { const f = anim.alFinal; anim.alFinal = null; anim.modo = "parado"; f && f(); }
+        }
+        const andando = anim.modo === "andando";
+        anim.andar = lerp(anim.andar, andando ? 1 : 0, 1 - Math.exp(-dt * 8));
+        anim.fase += dt * 7.5 * anim.andar;
+        // Girar hacia donde va (o hacia ti al sentarse)
+        const objetivoRumbo = andando ? anim.rumbo : 0;
+        let dif = objetivoRumbo - r.rotation.y; dif = Math.atan2(Math.sin(dif), Math.cos(dif));
+        r.rotation.y += dif * (1 - Math.exp(-dt * 7));
+        // Sentarse / levantarse
+        anim.sentar = lerp(anim.sentar, anim.sentarObj, 1 - Math.exp(-dt * 5));
+        const S = anim.sentar;
+        if (anim.modo === "sentandose" || anim.modo === "sentado" || anim.modo === "levantandose") {
+          r.position.x = lerp(r.position.x, SILLA.x, 1 - Math.exp(-dt * 5));
+          r.position.z = lerp(RUTA[RUTA.length - 1].z, SILLA.z, S);
+        }
+        const sw = Math.sin(anim.fase) * anim.andar;
+        npc.pI.art.rotation.x = lerp(sw * .5, -Math.PI / 2, S);
+        npc.pD.art.rotation.x = lerp(-sw * .5, -Math.PI / 2, S);
+        npc.pI.rodilla.rotation.x = lerp(Math.max(0, -Math.sin(anim.fase)) * .7 * anim.andar, Math.PI / 2, S);
+        npc.pD.rodilla.rotation.x = lerp(Math.max(0, Math.sin(anim.fase)) * .7 * anim.andar, Math.PI / 2, S);
+        npc.cadera.position.y = lerp(.92 + Math.abs(Math.cos(anim.fase)) * .025 * anim.andar, .55, S);
+        npc.torso.rotation.x = lerp(0, -.08, S);
+        npc.torso.scale.set(1, 1 + Math.sin(t * 2.2) * .008, 1);
+        npc.bI.hombro.rotation.set(lerp(-sw * .45, -.55, S), 0, lerp(-.08, -.12, S));
+        npc.bD.hombro.rotation.set(lerp(sw * .45, -.55, S), 0, lerp(.08, .12, S));
+        npc.bI.codo.rotation.x = npc.bD.codo.rotation.x = lerp(-.2, -1.0, S);
+        npc.bD.codo.rotation.z = 0;
+        // Saludo con la mano
+        if (anim.saludo > 0) {
+          anim.saludo -= dt;
+          const k = Math.min(1, anim.saludo * 3, (1.8 - anim.saludo) * 4);
+          npc.bD.hombro.rotation.z = lerp(npc.bD.hombro.rotation.z, 2.6, k);
+          npc.bD.hombro.rotation.x = lerp(npc.bD.hombro.rotation.x, 0, k);
+          npc.bD.codo.rotation.x = lerp(npc.bD.codo.rotation.x, 0, k);
+          npc.bD.codo.rotation.z = Math.sin(t * 12) * .45 * k;
+        }
+        // Hablar y parpadear
+        if (anim.habla > 0) { anim.habla -= dt; npc.boca.scale.set(1, 1 + Math.abs(Math.sin(t * 16)) * 2.2, 1); } else npc.boca.scale.set(1, 1, 1);
+        parpadeo -= dt; if (parpadeo < 0) parpadeo = 2.5 + Math.random() * 3;
+        npc.ojos.scale.y = parpadeo < .12 ? .15 : 1;
+        // Mirar a la cámara cuando está sentado
+        npc.raiz.getWorldPosition(tmp);
+        npc.cabeza.rotation.y = lerp(0, Math.atan2(camera.position.x - tmp.x, camera.position.z - tmp.z), S) + Math.sin(t * .7) * .04 * S;
+        npc.cabeza.rotation.x = lerp(0, -.06, S) + Math.sin(t * .9) * .02;
+      }
+
+      // Cámara: sigue al personaje mientras camina
+      const vertical = innerWidth / innerHeight < 1;
+      if (npc && npc.raiz.visible && anim.modo === "andando") {
+        const p = npc.raiz.position, k = vertical ? .95 : .55;
+        miraObj.set(p.x * k, 1.0, Math.min(p.z, -.9) - .4);
+      } else if (npc && npc.raiz.visible) miraObj.set(0, 1.0, -1.6);
+      else miraObj.set(-.2, 1.0, -1.6);
+      mira.lerp(miraObj, 1 - Math.exp(-dt * 2.2));
+      ratonS.x = lerp(ratonS.x, raton.x, 1 - Math.exp(-dt * 3)); ratonS.y = lerp(ratonS.y, raton.y, 1 - Math.exp(-dt * 3));
+      camera.position.set(ratonS.x * .25, 1.22 - ratonS.y * .1, vertical ? 1.55 : 1.4);
+      camera.lookAt(mira);
+      zoom = lerp(zoom, zoomObj, 1 - Math.exp(-dt * 3.5));
+      if (zoom > .001) {
+        camera.position.lerp(tabletVista, zoom);
+        camera.lookAt(tmp.copy(mira).lerp(tabletMira, zoom));
+      }
+      pantallaTab.color.setScalar(.88 + Math.sin(t * 3) * .12);
+
+      // Dejar sitio a la pantallita de la llamada
+      const ancho = $("pantalla").offsetWidth;
+      const objX = enLlamada && !vertical ? ancho / 2 + innerWidth * .015 : 0;
+      const objY = vertical ? innerHeight * (enLlamada ? .2 : .14) : 0;
+      despX = lerp(despX, objX, 1 - Math.exp(-dt * 4)); despY = lerp(despY, objY, 1 - Math.exp(-dt * 4));
+      if (Math.abs(despX) + Math.abs(despY) > .5) camera.setViewOffset(innerWidth, innerHeight, despX, despY, innerWidth, innerHeight);
+      else camera.clearViewOffset();
+
+      if (!(visorAbierto && zoom > .97)) renderer.render(scene, camera);
+
+      // Pista sobre la tablet
+      const pista = $("pista");
+      if (estado === "libre" && !visorAbierto && zoom < .05) {
+        tmp.set(.2, 1.0, .06).project(camera);
+        pista.style.transform = `translate(${(tmp.x * .5 + .5) * innerWidth - pista.offsetWidth / 2}px, ${(-tmp.y * .5 + .5) * innerHeight - pista.offsetHeight}px)`;
+        pista.classList.add("ver");
+      } else pista.classList.remove("ver");
+
+      // Bocadillo pegado a la cabeza
+      if (bocadilloOn && npc) {
+        npc.cabeza.getWorldPosition(tmp); tmp.y += .2; tmp.x += .12;
+        tmp.project(camera);
+        const el = $("bocadillo");
+        let x = (tmp.x * .5 + .5) * innerWidth, y = (-tmp.y * .5 + .5) * innerHeight - el.offsetHeight;
+        x = Math.max(10, Math.min(x, innerWidth - el.offsetWidth - 10)); y = Math.max(10, y);
+        el.style.transform = `translate(${x}px, ${y}px)`;
+      }
+      requestAnimationFrame(cuadro);
+    }
+    requestAnimationFrame(cuadro);
+    $("cargando").classList.add("fuera");
+    escena3D = api;
+  }
+</script>
+</body>
+</html>
