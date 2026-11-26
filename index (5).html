@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi Oficina</title>
+<meta name="theme-color" content="#12151c">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100dvh;
+    background: radial-gradient(1200px 600px at 50% -10%, #2b3245, #12151c 60%) fixed, #12151c;
+    color: #eef1f7;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .top { max-width: 1100px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 16px 0; }
+  .top h1 { margin: 0; font-size: 24px; letter-spacing: -.01em; }
+  .top p { margin: 4px 0 0; color: #9aa3b5; font-size: 14px; }
+
+  /* ---------- Despachos ---------- */
+  .salas {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 22px; max-width: 1100px; margin: 0 auto; padding: 20px 16px 32px;
+    perspective: 1200px;
+  }
+  .sala {
+    --rx: 5deg; --ry: 0deg;
+    background: linear-gradient(180deg, #1f2533, #161a23);
+    border: 1px solid #2c3446; border-radius: 22px; padding: 12px;
+    transform: rotateX(var(--rx)) rotateY(var(--ry));
+    transform-style: preserve-3d;
+    transition: transform .25s ease;
+    box-shadow: 0 30px 40px -24px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.06);
+    display: grid; grid-template-areas: "esc" "placa" "btn";
+  }
+  .escena { grid-area: esc; }
+  .escena svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 16px 14px rgba(0,0,0,.5)); }
+  .placa { grid-area: placa; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 6px 12px; }
+  .placa h2 { margin: 0; font-size: 19px; }
+  .placa p { margin: 2px 0 0; color: #9aa3b5; font-size: 13px; }
+  .estado { font-size: 12px; color: #7ee0a1; white-space: nowrap; }
+  .estado::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 6px; box-shadow: 0 0 8px currentColor; }
+  .llamar {
+    grid-area: btn; width: 100%; border: 0; border-radius: 14px; padding: 14px;
+    font: 700 16px/1 inherit; color: #fff; cursor: pointer;
+    background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c), #000 22%));
+    box-shadow: 0 6px 0 color-mix(in srgb, var(--c), #000 50%), 0 12px 22px -8px var(--c);
+    transform: translateZ(24px); transition: transform .08s, box-shadow .08s;
+  }
+  .llamar:active { transform: translateZ(24px) translateY(4px); box-shadow: 0 2px 0 color-mix(in srgb, var(--c), #000 50%); }
+
+  @media (max-width: 600px) {
+    .salas { gap: 14px; padding-top: 14px; }
+    .sala { --rx: 0deg; grid-template-columns: 46% 1fr; grid-template-areas: "esc placa" "esc btn"; column-gap: 10px; align-items: center; padding: 10px; }
+    .placa { flex-direction: column; align-items: flex-start; padding: 0 0 8px; }
+    .placa h2 { font-size: 18px; }
+    .llamar { padding: 12px; font-size: 15px; align-self: end; }
+  }
+
+  /* ---------- Piezas animadas del dibujo ---------- */
+  .camina { transition: transform 1s ease-in-out, opacity .25s ease .85s; }
+  .sentado .camina { transform: translate(-53px, -35px); opacity: 0; }
+  .bob { animation: bob 3s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-1.5px); } }
+  .sentada { opacity: 0; transition: opacity .35s ease .9s; }
+  .sentado .sentada { opacity: 1; }
+  .telefono { transform-box: fill-box; transform-origin: center; }
+  .sonando .telefono { animation: vibra .1s linear infinite; }
+  @keyframes vibra { 0% { transform: translate(-1px, 0); } 50% { transform: translate(1px, -1px); } 100% { transform: translate(-1px, 0); } }
+  .foco { fill: #5b5b5b; transition: fill .4s; }
+  .en-llamada .foco { fill: #ffd166; filter: drop-shadow(0 0 6px #ffd166); }
+  .luz { opacity: 0; transition: opacity .6s; }
+  .en-llamada .luz { opacity: .35; }
+
+  /* ---------- Pantalla de llamada ---------- */
+  #llamada {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    background: radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--c, #445), #000 50%), #0c0e13 72%);
+    opacity: 0; pointer-events: none; transition: opacity .35s;
+  }
+  #llamada.abierta { opacity: 1; pointer-events: auto; }
+  .ll-cab {
+    flex: 1; display: grid; grid-template-columns: 1fr; justify-items: center; align-content: center;
+    text-align: center; gap: 14px; padding: max(24px, env(safe-area-inset-top)) 16px 24px;
+  }
+  .ll-escena { width: min(82vw, 460px); transition: width .6s ease; }
+  .ll-escena svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 20px 18px rgba(0,0,0,.55)); }
+  .ll-info h2 { margin: 0; font-size: 26px; }
+  .ll-estado { margin: 4px 0 0; color: #c9d1e0; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .sonando-txt::after { content: ""; animation: puntos 1.2s steps(4) infinite; }
+  @keyframes puntos { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+  .aparte { display: none; color: #9cc2ff; font-size: 13px; text-decoration: none; }
+  .colgar {
+    width: 66px; height: 66px; border-radius: 50%; border: 0; cursor: pointer;
+    background: #e5484d; color: #fff; font-size: 26px;
+    box-shadow: 0 10px 24px -8px #e5484d, inset 0 -3px 0 rgba(0,0,0,.2);
+  }
+  .colgar span { display: inline-block; transform: rotate(135deg); }
+  .ll-cuerpo {
+    flex: 0; position: relative; margin: 0 12px max(12px, env(safe-area-inset-bottom));
+    border-radius: 18px; overflow: hidden; background: #fff;
+    opacity: 0; transform: translateY(40px); transition: opacity .5s .15s, transform .5s .15s;
+  }
+  .ll-cuerpo iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #fff; }
+  .ll-cuerpo iframe.activo { display: block; }
+
+  #llamada.conectado .ll-cab {
+    flex: 0; grid-template-columns: auto 1fr auto; justify-items: start; align-items: center;
+    text-align: left; gap: 12px; padding: max(10px, env(safe-area-inset-top)) 16px 10px;
+  }
+  #llamada.conectado .ll-escena { width: 104px; }
+  #llamada.conectado .ll-info h2 { font-size: 18px; }
+  #llamada.conectado .ll-estado { font-size: 13px; }
+  #llamada.conectado .aparte { display: inline-block; margin-top: 2px; }
+  #llamada.conectado .colgar { width: 50px; height: 50px; font-size: 20px; }
+  #llamada.conectado .ll-cuerpo { flex: 1; opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: .01s !important; }
+  }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>🏢 Mi Oficina</h1>
+  <p id="saludo">Toca a quién quieres llamar.</p>
+</div>
+<main class="salas" id="salas"></main>
+
+<section id="llamada" aria-hidden="true">
+  <div class="ll-cab">
+    <div class="ll-escena" id="llEscena"></div>
+    <div class="ll-info">
+      <h2 id="llNombre"></h2>
+      <p class="ll-estado" id="llEstado"></p>
+      <a class="aparte" id="llAparte" target="_blank" rel="noopener">¿No va el micrófono? Abrir aparte ↗</a>
+    </div>
+    <button class="colgar" id="colgar" aria-label="Colgar"><span>📞</span></button>
+  </div>
+  <div class="ll-cuerpo" id="llCuerpo"></div>
+</section>
+
+<script>
+  // ==========================================================
+  //  TUS ASISTENTES
+  //  Para añadir el de tutoriales: quita las // de su línea
+  //  y cambia NOMBRE-DEL-REPO por el nombre real.
+  // ==========================================================
+  const ASISTENTES = [
+    { id: "pedidos",  nombre: "Pedidos",  rol: "Pedidos de muebles",      color: "#e07a3f", piel: "#f1c27d", pelo: "#3b2416",
+      url: "https://nre130826-maker.github.io/asistente-pedidos/" },
+    { id: "bodega",   nombre: "Bodega",   rol: "Inventario y existencias", color: "#2a9d8f", piel: "#d8a37a", pelo: "#1c1c1c",
+      url: "https://nre130826-maker.github.io/asistente-bodega/" },
+    { id: "personal", nombre: "Personal", rol: "Tu asistente personal",    color: "#7b61ff", piel: "#f5d0b0", pelo: "#6b3e26",
+      url: "https://nre130826-maker.github.io/asistente-voz-personal-DAN-/" },
+    // { id: "tutoriales", nombre: "Tutoriales", rol: "Ayuda con AppSheet", color: "#3a86ff", piel: "#e8b98f", pelo: "#2b1d14",
+    //   url: "https://nre130826-maker.github.io/NOMBRE-DEL-REPO/" },
+  ];
+  // ==========================================================
+
+  /* ---------- Dibujo isométrico del despacho ---------- */
+  const iso = (u, v, h = 0) => [150 + 120 * (u - v), 100 + 60 * (u + v) - h];
+  const P = pts => pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+  const poly = (pts, fill, extra = "") => `<polygon points="${P(pts)}" fill="${fill}" ${extra}/>`;
+  function tono(hex, a) {
+    const n = parseInt(hex.slice(1), 16), t = a < 0 ? 0 : 255, k = Math.abs(a);
+    const c = [n >> 16, (n >> 8) & 255, n & 255].map(x => Math.round(x + (t - x) * k));
+    return `rgb(${c.join(",")})`;
+  }
+  function caja(u, v, du, dv, h0, h1, c, extra = "") {
+    return `<g ${extra}>` +
+      poly([iso(u, v, h1), iso(u + du, v, h1), iso(u + du, v + dv, h1), iso(u, v + dv, h1)], c) +
+      poly([iso(u + du, v, h0), iso(u + du, v + dv, h0), iso(u + du, v + dv, h1), iso(u + du, v, h1)], tono(c, -0.18)) +
+      poly([iso(u, v + dv, h0), iso(u + du, v + dv, h0), iso(u + du, v + dv, h1), iso(u, v + dv, h1)], tono(c, -0.32)) +
+      `</g>`;
+  }
+  function cabeza(a, cy) {
+    return `<circle cx="0" cy="${cy}" r="9" fill="${a.piel}"/>
+      <path d="M-9,${cy - 1} a9,9 0 0 1 18,0 q-9,-5 -18,0z" fill="${a.pelo}"/>
+      <circle cx="-3" cy="${cy + 1}" r="1.1" fill="#222"/><circle cx="3" cy="${cy + 1}" r="1.1" fill="#222"/>
+      <path d="M-2.5,${cy + 4.5} q2.5,2 5,0" stroke="#7a3b2e" stroke-width="1" fill="none"/>
+      <path d="M-10.5,${cy} a10.5,10.5 0 0 1 21,0" fill="none" stroke="#222" stroke-width="2"/>
+      <rect x="-12.5" y="${cy - 2}" width="4" height="7" rx="1.5" fill="#222"/>
+      <path d="M-10.5,${cy + 4} q1,6 7,6" stroke="#222" stroke-width="1.4" fill="none"/>`;
+  }
+  function deCuerpoEntero(a) {
+    const s = a.color, m = tono(s, -0.2);
+    return `<rect x="-7" y="-30" width="6" height="30" rx="2" fill="#2d3142"/>
+      <rect x="1" y="-30" width="6" height="30" rx="2" fill="#2d3142"/>
+      <rect x="-14" y="-56" width="5" height="22" rx="2.5" fill="${m}"/>
+      <rect x="9" y="-56" width="5" height="22" rx="2.5" fill="${m}"/>
+      <rect x="-10" y="-60" width="20" height="33" rx="7" fill="${s}"/>
+      ${cabeza(a, -70)}`;
+  }
+  function sentadaFig(a) {
+    const s = a.color, m = tono(s, -0.2);
+    return `<rect x="-14" y="-26" width="5" height="20" rx="2.5" fill="${m}"/>
+      <rect x="9" y="-26" width="5" height="20" rx="2.5" fill="${m}"/>
+      <rect x="-10" y="-31" width="20" height="31" rx="7" fill="${s}"/>
+      ${cabeza(a, -41)}`;
+  }
+  function despacho(a, clases = "") {
+    const c = a.color, w = [];
+    // Suelo y tablas
+    w.push(poly([iso(0, 0), iso(1, 0), iso(1, 1), iso(0, 1)], "#c9a27c"));
+    for (let k = 1; k < 6; k++) { const v = k / 6; w.push(`<line x1="${iso(0, v)[0]}" y1="${iso(0, v)[1]}" x2="${iso(1, v)[0]}" y2="${iso(1, v)[1]}" stroke="#a8825d" stroke-width=".8" opacity=".6"/>`); }
+    w.push(poly([iso(.25, .65), iso(.92, .65), iso(.92, .96), iso(.25, .96)], c, 'opacity=".35"'));
+    // Paredes
+    w.push(poly([iso(0, 0), iso(0, 1), iso(0, 1, 100), iso(0, 0, 100)], "#ece3d6"));
+    w.push(poly([iso(0, 0), iso(1, 0), iso(1, 0, 100), iso(0, 0, 100)], tono(c, 0.72)));
+    w.push(`<polyline points="${P([iso(0, 1, 100), iso(0, 0, 100), iso(1, 0, 100)])}" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"/>`);
+    w.push(poly([iso(0, 0, 0), iso(1, 0, 0), iso(1, 0, 6), iso(0, 0, 6)], tono(c, 0.35)));
+    w.push(poly([iso(0, 0, 0), iso(0, 1, 0), iso(0, 1, 6), iso(0, 0, 6)], "#d6cbbb"));
+    // Ventana
+    w.push(poly([iso(.52, 0, 42), iso(.86, 0, 42), iso(.86, 0, 86), iso(.52, 0, 86)], "#bfe3ff", 'stroke="#fff" stroke-width="3"'));
+    w.push(`<line x1="${iso(.69, 0, 42)[0]}" y1="${iso(.69, 0, 42)[1]}" x2="${iso(.69, 0, 86)[0]}" y2="${iso(.69, 0, 86)[1]}" stroke="#fff" stroke-width="2"/>`);
+    // Nombre en la pared
+    const t = iso(0, .9, 60);
+    w.push(`<text transform="translate(${t[0]},${t[1]}) skewY(-26.565)" font-size="16" font-weight="800" fill="${tono(c, -0.35)}" font-family="system-ui, sans-serif">${a.nombre}</text>`);
+    // Estantería con libros
+    w.push(caja(0, .08, .1, .22, 0, 70, "#a47148"));
+    w.push(caja(.02, .1, .06, .04, 70, 84, c) + caja(.02, .16, .06, .03, 70, 80, "#f4a261") + caja(.02, .21, .06, .04, 70, 86, "#457b9d"));
+    // Silla (respaldo y asiento)
+    w.push(caja(.545, .26, .03, .03, 0, 18, "#3a3a3a"));
+    w.push(caja(.48, .2, .14, .025, 22, 54, "#2f2f35"));
+    w.push(caja(.48, .2, .14, .14, 18, 22, "#3b3b42"));
+    // Asistente sentado
+    const sp = iso(.55, .27, 22);
+    w.push(`<g class="sentada" transform="translate(${sp[0]},${sp[1]})"><g class="bob">${sentadaFig(a)}</g></g>`);
+    // Escritorio, monitor, lámpara y teléfono
+    w.push(caja(.3, .42, .5, .18, 0, 30, "#7a5235"));
+    w.push(poly([iso(.42, .48, 30.5), iso(.62, .48, 30.5), iso(.62, .6, 30.5), iso(.42, .6, 30.5)], "#bfe3ff", 'class="luz"'));
+    w.push(caja(.5, .45, .04, .03, 30, 36, "#333"));
+    w.push(caja(.42, .44, .2, .025, 36, 58, "#26272b"));
+    const l0 = iso(.34, .5, 30), l1 = iso(.34, .5, 54);
+    w.push(`<line x1="${l0[0]}" y1="${l0[1]}" x2="${l1[0]}" y2="${l1[1]}" stroke="#444" stroke-width="2"/><circle class="foco" cx="${l1[0]}" cy="${l1[1]}" r="5"/>`);
+    w.push(caja(.68, .46, .08, .07, 30, 35, "#c0392b", 'class="telefono"'));
+    // Asistente de pie junto a la ventana
+    const dp = iso(.88, .16, 0);
+    w.push(`<g transform="translate(${dp[0]},${dp[1]})"><g class="camina"><g class="bob">${deCuerpoEntero(a)}</g></g></g>`);
+    // Planta
+    w.push(caja(.05, .82, .09, .09, 0, 14, "#e4e4e4"));
+    const pl = iso(.095, .865, 28);
+    w.push(`<circle cx="${pl[0]}" cy="${pl[1]}" r="11" fill="#2d6a4f"/><circle cx="${pl[0] - 7}" cy="${pl[1] + 4}" r="7" fill="#40916c"/><circle cx="${pl[0] + 7}" cy="${pl[1] + 3}" r="7" fill="#52b788"/>`);
+    return `<svg viewBox="0 0 300 232" class="${clases}" role="img" aria-label="Despacho de ${a.nombre}">${w.join("")}</svg>`;
+  }
+
+  /* ---------- Vestíbulo ---------- */
+  const h = new Date().getHours();
+  document.getElementById("saludo").textContent =
+    (h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches") + ". Toca a quién quieres llamar.";
+
+  const salas = document.getElementById("salas");
+  ASISTENTES.forEach(a => {
+    const el = document.createElement("article");
+    el.className = "sala";
+    el.style.setProperty("--c", a.color);
+    el.innerHTML = `<div class="escena">${despacho(a)}</div>
+      <div class="placa"><div><h2>${a.nombre}</h2><p>${a.rol}</p></div><span class="estado">Disponible</span></div>
+      <button class="llamar">📞 Llamar</button>`;
+    el.querySelector(".llamar").onclick = () => llamar(a);
+    el.addEventListener("pointermove", e => {
+      if (e.pointerType !== "mouse") return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--ry", ((e.clientX - r.left) / r.width - .5) * 14 + "deg");
+      el.style.setProperty("--rx", (.5 - (e.clientY - r.top) / r.height) * 10 + "deg");
+    });
+    el.addEventListener("pointerleave", () => { el.style.removeProperty("--rx"); el.style.removeProperty("--ry"); });
+    salas.appendChild(el);
+  });
+
+  /* ---------- Llamada ---------- */
+  const ll = document.getElementById("llamada");
+  const llEscena = document.getElementById("llEscena");
+  const llNombre = document.getElementById("llNombre");
+  const llEstado = document.getElementById("llEstado");
+  const llAparte = document.getElementById("llAparte");
+  const llCuerpo = document.getElementById("llCuerpo");
+  const marcos = {};
+  let temporizadores = [], reloj = null, audio = null;
+
+  function timbre() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const t0 = audio.currentTime + .05;
+      for (let i = 0; i < 2; i++) {
+        const g = audio.createGain(), ini = t0 + i * .8;
+        g.gain.setValueAtTime(0, ini); g.gain.linearRampToValueAtTime(.06, ini + .02);
+        g.gain.setValueAtTime(.06, ini + .45); g.gain.linearRampToValueAtTime(0, ini + .5);
+        g.connect(audio.destination);
+        [440, 480].forEach(f => { const o = audio.createOscillator(); o.frequency.value = f; o.connect(g); o.start(ini); o.stop(ini + .52); });
+      }
+    } catch (e) {}
+  }
+  const despues = (ms, fn) => temporizadores.push(setTimeout(fn, ms));
+
+  function llamar(a) {
+    temporizadores.forEach(clearTimeout); temporizadores = []; clearInterval(reloj);
+    ll.style.setProperty("--c", a.color);
+    llEscena.innerHTML = despacho(a, "sonando");
+    const svg = llEscena.firstElementChild;
+    llNombre.textContent = a.nombre;
+    llEstado.innerHTML = `<span class="sonando-txt">Llamando</span>`;
+    llAparte.href = a.url;
+    ll.classList.remove("conectado");
+    ll.classList.add("abierta");
+    ll.setAttribute("aria-hidden", "false");
+    timbre();
+    despues(350, () => svg.classList.add("sentado"));
+    despues(1900, () => {
+      svg.classList.remove("sonando");
+      svg.classList.add("en-llamada");
+      if (!marcos[a.id]) {
+        const f = document.createElement("iframe");
+        f.src = a.url; f.title = a.nombre;
+        f.allow = "microphone; camera; autoplay; clipboard-read; clipboard-write";
+        llCuerpo.appendChild(f); marcos[a.id] = f;
+      }
+      Object.values(marcos).forEach(m => m.classList.toggle("activo", m === marcos[a.id]));
+      ll.classList.add("conectado");
+      const ini = Date.now();
+      const pinta = () => {
+        const s = Math.floor((Date.now() - ini) / 1000);
+        llEstado.textContent = "En llamada · " + String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+      };
+      pinta(); reloj = setInterval(pinta, 1000);
+    });
+  }
+
+  document.getElementById("colgar").onclick = () => {
+    temporizadores.forEach(clearTimeout); temporizadores = []; clearInterval(reloj);
+    ll.classList.remove("abierta");
+    ll.setAttribute("aria-hidden", "true");
+    setTimeout(() => ll.classList.remove("conectado"), 350);
+  };
+</script>
+</body>
+</html>
